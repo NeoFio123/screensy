@@ -5,6 +5,13 @@ All notable changes to the screensy project will be documented in this file.
 The format is based on [Keep a Changelog], and this project adheres to
 [Semantic Versioning].
 
+## 1.11.0 - 2024-07-13
+
+### Added
+
+-   Refactor docker-compose.yml.
+-   Update dependencies.
+
 ## 1.10.0 - 2024-07-13
 
 ### Added
