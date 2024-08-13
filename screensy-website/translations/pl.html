@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="pl">
+    <head>
+        <meta charset="UTF-8" />
+        <title>screensy</title>
+        <meta
+            name="description"
+            content="Proste udostępnianie ekranu w technologii peer-to-peer"
+        />
+        <meta name="application-name" content="screensy" />
+        <meta name="language" content="pl" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link href="./styles.css" rel="stylesheet" />
+        <script type="text/javascript" src="./screensy.js"></script>
+    </head>
+    <body>
+        <noscript>
+            <div class="popup">
+                <h1>JavaScript jest nieobsługiwany lub wyłączony.</h1>
+                <p>
+                    Screensy wymaga wsparcia JavaScript, ale twoja przeglądarka
+                    go nie obsługuje. Użyj przeglądarki, która wspiera
+                    JavaScript i upewnij się, że jest on włączony.
+                </p>
+            </div>
+        </noscript>
+        <div id="access-denied" class="popup hidden">
+            <h1>Brak zezwolenia na dostęp do swojego ekranu.</h1>
+            <p>
+                Screensy potrzebuje dostępu do twojego ekranu, aby go
+                udostępnić, ale odmówiłeś dostępu. Spróbuj odświeżyć stronę i
+                zezwól na dostęp, gdy przeglądarka o to poprosi. Jeśli twoja
+                przeglądarka nie pyta o uprawnienie, sprawdź ustawienia
+                przeglądarki.
+            </p>
+        </div>
+        <div id="screensharing-not-supported" class="popup hidden">
+            <h1>Udostępnianie ekranu jest nieobsługiwane lub wyłączone.</h1>
+            <p>
+                Screensy nie może udostępnić twojego ekranu, ponieważ twoja
+                przeglądarka tego nie wspiera lub ta funkcja jest wyłączona.
+                Użyj przeglądarki, która wspiera udostępnianie ekranu i upewnij
+                się, że jest włączone.
+            </p>
+        </div>
+        <div id="websockets-not-supported" class="popup hidden">
+            <h1>WebSocket jest nieobsługiwany lub wyłączony.</h1>
+            <p>
+                Screensy wymaga wsparcia WebSocket, ale twoja przeglądarka go
+                nie obsługuje. Użyj przeglądarki, która wspiera WebSocket i
+                upewnij się, że jest włączony.
+            </p>
+        </div>
+        <div id="webrtc-not-supported" class="popup hidden">
+            <h1>WebRTC jest nieobsługiwany lub wyłączony.</h1>
+            <p>
+                Screensy wymaga wsparcia WebRTC, ale twoja przeglądarka go nie
+                obsługuje. Użyj przeglądarki, która wspiera WebRTC i upewnij
+                się, że jest włączony.
+            </p>
+        </div>
+        <div id="mediastream-not-supported" class="popup hidden">
+            <h1>MediaStream jest nieobsługiwany lub wyłączony.</h1>
+            <p>
+                Screensy wymaga wsparcia MediaStream, ale twoja przeglądarka go
+                nie obsługuje. Użyj przeglądarki, która wspiera MediaStream i
+                upewnij się, że jest włączony.
+            </p>
+        </div>
+        <div id="websocket-connect-failed" class="popup hidden">
+            <h1>Nie można nawiązać połączenia WebSocket.</h1>
+            <p>
+                Screensy potrzebuje nawiązać połączenie WebSocket, aby połączyć
+                się z innymi użytkownikami, ale sie to nie udało. Spróbuj użyć
+                innego urządzenia lub skontaktuj się z administratorem tej
+                strony internetowej.
+            </p>
+        </div>
+        <div id="broadcaster-disconnected" class="popup hidden">
+            <h1>Osoba udostępniająca ekran została rozłączona.</h1>
+        </div>
+        <div id="click-to-share" class="popup clickable hidden">
+            <h1>Kliknij, aby udostępnić swój ekran.</h1>
+        </div>
+        <video
+            id="stream"
+            autoplay="autoplay"
+            muted="muted"
+            controls="controls"
+            playsinline="playsinline"
+        >
+            <div class="popup">
+                <h1>Tagi wideo nie są obsługiwane.</h1>
+                <p>
+                    Screensy wymaga wsparcia dla tagów wideo, ale twoja
+                    przeglądarka ich nie obsługuje. Użyj przeglądarki, która
+                    wspiera tagi wideo.
+                </p>
+            </div>
+        </video>
+    </body>
+</html>
