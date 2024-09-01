@@ -5,6 +5,17 @@ All notable changes to the screensy project will be documented in this file.
 The format is based on [Keep a Changelog], and this project adheres to
 [Semantic Versioning].
 
+## 1.10.0 - 2024-07-13
+
+### Added
+
+-   Add the Polish translation.
+-   Enable the `no-new-privileges` option in the `docker-compose.yaml` file.
+
+### Changed
+
+-   Upgrade dependencies.
+
 ## 1.9.0 - 2023-02-07
 
 ### Added

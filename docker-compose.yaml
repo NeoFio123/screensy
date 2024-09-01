@@ -1,24 +1,37 @@
-version: "3.3"
 services:
     rendezvous:
-        build: "./screensy-rendezvous"
+        container_name: screensy-rendezvous
+        build: ./screensy-rendezvous
+        security_opt:
+            - no-new-privileges:true
         restart: unless-stopped
+
     website:
-        build: "./screensy-website"
+        container_name: screensy-website
+        build: ./screensy-website
+        security_opt:
+            - no-new-privileges:true
         restart: unless-stopped
+
     caddy:
-        image: "caddy:2.3.0-alpine"
-        restart: unless-stopped
-        volumes:
-            - ./Caddyfile:/etc/caddy/Caddyfile
+        image: caddy:2.8.4
+        container_name: screensy-caddy
         ports:
-            - "443:443"
             - "80:80"
-    turn:
-        image: "coturn/coturn:4.5.2"
-        restart: unless-stopped
-        # Use the host network directly as Docker performs badly with
-        # large port ranges
-        network_mode: "host"
+            - "443:443"
         volumes:
-            - ./turnserver.conf:/etc/coturn/turnserver.conf
+            - "./Caddyfile:/etc/caddy/Caddyfile"
+        security_opt:
+            - no-new-privileges:true
+        restart: unless-stopped
+
+    turn:
+        image: coturn/coturn:4.6.2
+        container_name: screensy-turn
+        # Use the host network directly as Docker performs badly with large port ranges.
+        network_mode: host
+        volumes:
+            - "./turnserver.conf:/etc/coturn/turnserver.conf"
+        security_opt:
+            - no-new-privileges:true
+        restart: unless-stopped
