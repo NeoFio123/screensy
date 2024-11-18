@@ -27,6 +27,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o screensy-website .
 
 FROM alpine:3.19
 
+WORKDIR /home/screensy
+
 COPY --from=typescript_builder /home/node/app/screensy.js ./
 COPY --from=typescript_builder /home/node/app/screensy.js.map ./
 COPY --from=typescript_builder /home/node/app/screensy.ts ./
