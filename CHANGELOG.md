@@ -5,7 +5,7 @@ All notable changes to the screensy project will be documented in this file.
 The format is based on [Keep a Changelog], and this project adheres to
 [Semantic Versioning].
 
-## 1.10.0 - 2024-07-13
+## UNRELEASED
 
 ### Added
 
@@ -15,6 +15,11 @@ The format is based on [Keep a Changelog], and this project adheres to
 ### Changed
 
 -   Upgrade dependencies.
+
+### Security
+
+-   Change the working directory of the Docker container to ensure only
+    files needed for screensy are exposed through the browser.
 
 ## 1.9.0 - 2023-02-07
 
