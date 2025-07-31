@@ -432,6 +432,11 @@ const httpServer = http.createServer((req, res) => {
     } else if (pathname === '/device' || pathname === '/device/') {
         // Serve device client
         filePath = path.join(__dirname, '../device-client/index.html');
+    } else if (pathname === '/favicon.ico') {
+        // Handle favicon request
+        res.writeHead(204); // No Content
+        res.end();
+        return;
     } else if (pathname.startsWith('/admin-dashboard/')) {
         // Serve admin dashboard static files
         filePath = path.join(__dirname, '..', pathname);
@@ -492,8 +497,25 @@ const httpServer = http.createServer((req, res) => {
 // Start HTTP server
 const HTTP_PORT = 8080;
 httpServer.listen(HTTP_PORT, '0.0.0.0', () => {
+    // Get local IP address
+    const os = require('os');
+    const networkInterfaces = os.networkInterfaces();
+    let localIP = 'localhost';
+    
+    for (const interfaceName of Object.keys(networkInterfaces)) {
+        const addresses = networkInterfaces[interfaceName];
+        for (const addr of addresses) {
+            if (addr.family === 'IPv4' && !addr.internal) {
+                localIP = addr.address;
+                break;
+            }
+        }
+        if (localIP !== 'localhost') break;
+    }
+    
     console.log('🚀 Shop Screensharing Server gestartet:');
     console.log(`📡 HTTP Server: http://localhost:${HTTP_PORT}`);
+    console.log(`📡 Netzwerk: http://${localIP}:${HTTP_PORT}`);
     console.log('🔌 WebSocket Servers:');
     console.log('   - Screensy: ws://localhost:4000');
     console.log('   - Admin: ws://localhost:4001'); 
@@ -501,14 +523,17 @@ httpServer.listen(HTTP_PORT, '0.0.0.0', () => {
     console.log('📋 Öffnen Sie http://localhost:8080 in Ihrem Browser');
     console.log('');
     console.log('🌐 System bereit!');
-    console.log(`📋 Öffnen Sie: http://localhost:${HTTP_PORT}`);
-    console.log(`🔧 Für lokales Netzwerk: http://[IHRE-IP]:${HTTP_PORT}`);
+    console.log(`📋 Computer: http://localhost:${HTTP_PORT}`);
+    console.log(`� Handy/Tablet: http://${localIP}:${HTTP_PORT}`);
+    console.log(`�🔧 Admin Dashboard: http://${localIP}:${HTTP_PORT}/admin`);
+    console.log(`📱 Device Client: http://${localIP}:${HTTP_PORT}/device`);
     console.log('⚡ WebSocket läuft auf Port: 4000-4002');
     console.log('');
     console.log('💡 Tipps:');
     console.log(`   - Stellen Sie sicher, dass Port ${HTTP_PORT} und 4000-4002 frei sind`);
-    console.log('   - Für Smartphones: Verwenden Sie die IP-Adresse Ihres PCs');
+    console.log(`   - Für Smartphones: Verwenden Sie http://${localIP}:${HTTP_PORT}/device`);
     console.log('   - Firewall-Einstellungen prüfen für lokales Netzwerk');
+    console.log('   - Windows Firewall: Erlaube Node.js Zugriff');
     console.log('');
     console.log('🛑 Zum Stoppen: Ctrl+C drücken');
 });
