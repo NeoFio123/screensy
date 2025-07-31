@@ -381,7 +381,10 @@ class DeviceClient {
     handleSharingRequest(message) {
         this.pendingPermissionRequest = message;
         this.showModal('permission-request-modal');
-        this.log(`Sharing-Anfrage vom Admin erhalten`, 'warning');
+        this.log(`✅ Sharing-Anfrage vom Admin erhalten!`, 'success');
+        
+        // Show notification to user
+        this.showNotification('📤 Sharing-Anfrage erhalten! Bitte erlauben Sie den Zugriff.', 'info');
     }
 
     handlePermissionResponse(allowed) {
@@ -395,12 +398,14 @@ class DeviceClient {
         });
 
         if (allowed) {
-            this.log('Sharing-Berechtigung erteilt', 'success');
+            this.log('✅ Sharing-Berechtigung erteilt', 'success');
             this.hideModal('permission-request-modal');
             this.showModal('capture-selection-modal');
+            this.showNotification('✅ Zugriff erlaubt! Wählen Sie den zu teilenden Bildschirm.', 'success');
         } else {
-            this.log('Sharing-Berechtigung verweigert', 'warning');
+            this.log('❌ Sharing-Berechtigung verweigert', 'warning');
             this.hideModal('permission-request-modal');
+            this.showNotification('❌ Zugriff verweigert.', 'warning');
         }
 
         this.pendingPermissionRequest = null;
