@@ -112,9 +112,13 @@ class AdminDashboard {
 
     connectToServer() {
         try {
+            // Use secure WebSocket (wss://) for HTTPS pages, regular (ws://) for HTTP pages
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//localhost:4001/`;
+            const host = window.location.hostname;
+            const port = window.location.protocol === 'https:' ? '5001' : '4001';
+            const wsUrl = `${protocol}//${host}:${port}/`;
             
+            this.log(`Verbinde zu WebSocket: ${wsUrl}`, 'info');
             this.webSocket = new WebSocket(wsUrl);
             
             this.webSocket.onopen = () => {

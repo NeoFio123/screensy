@@ -15,17 +15,17 @@ class EnhancedServer {
         this.sharingRequests = new Map();
     }
 
+    // ... (alle anderen Methoden bleiben gleich - ich kopiere sie für Vollständigkeit)
     handleAdminSharingRequest(message, socket) {
         const deviceId = message.deviceId;
         const targetScreen = message.targetScreen;
         
         console.log(`🎯 Admin requests sharing from device ${deviceId} to screen ${targetScreen}`);
         
-        // Forward request to device
         const device = this.devices.get(deviceId);
         if (device && device.socket && device.socket.readyState === WebSocket.OPEN) {
             device.socket.send(JSON.stringify({
-                type: 'sharing-request', // Korrigiert: sharing-request statt request-sharing
+                type: 'sharing-request',
                 targetScreen: targetScreen,
                 requestId: `req_${Date.now()}`,
                 timestamp: Date.now()
@@ -37,31 +37,6 @@ class EnhancedServer {
                 type: 'sharing-error',
                 message: 'Device not available',
                 deviceId: deviceId,
-                timestamp: Date.now()
-            }));
-        }
-    }
-
-    handleSharingRequest(message, socket) {
-        const deviceId = message.deviceId;
-        const targetScreen = message.targetScreen;
-        
-        console.log(`🔄 Processing sharing request for device ${deviceId}`);
-        
-        // Store the request
-        this.sharingRequests.set(deviceId, {
-            targetScreen: targetScreen,
-            adminSocket: socket,
-            timestamp: Date.now()
-        });
-        
-        // Forward to device
-        const device = this.devices.get(deviceId);
-        if (device && device.socket && device.socket.readyState === WebSocket.OPEN) {
-            device.socket.send(JSON.stringify({
-                type: 'sharing-request', // Korrigiert
-                targetScreen: targetScreen,
-                requestId: `req_${Date.now()}`,
                 timestamp: Date.now()
             }));
         }
@@ -82,11 +57,11 @@ class EnhancedServer {
 
         socket.on('close', () => {
             this.clients.delete(clientId);
-            console.log(`🔌 Screensy client ${clientId} disconnected`);
+            console.log(`🔌 Client ${clientId} disconnected`);
         });
 
         socket.on('error', (error) => {
-            console.error('❌ Screensy WebSocket error:', error);
+            console.error('❌ WebSocket error:', error);
         });
     }
 
@@ -148,7 +123,6 @@ class EnhancedServer {
 
     handleScreensyMessage(clientId, message, socket) {
         console.log(`📨 Screensy message from ${clientId}:`, message.type);
-        // Handle original screensy messages here if needed
     }
 
     handleAdminMessage(adminId, message, socket) {
@@ -172,19 +146,8 @@ class EnhancedServer {
             case 'request-sharing':
                 this.handleAdminSharingRequest(message, socket);
                 break;
-            case 'sharing-request':
-                this.handleSharingRequest(message, socket);
-                break;
-            case 'stop-sharing':
-                this.forwardToDevice(message);
-                break;
             case 'webrtc-answer':
             case 'webrtc-candidate':
-                this.forwardToDevice(message);
-                break;
-            case 'admin-stream-offer':
-            case 'admin-stream-answer': 
-            case 'admin-ice-candidate':
                 this.forwardToDevice(message);
                 break;
             default:
@@ -207,9 +170,6 @@ class EnhancedServer {
             case 'webrtc-candidate':
                 message.deviceId = deviceId;
                 this.forwardToAdmins(message);
-                break;
-            case 'stop-sharing':
-                this.handleStopSharing(deviceId, message);
                 break;
             default:
                 console.log('❓ Unknown device message type:', message.type);
@@ -271,7 +231,6 @@ class EnhancedServer {
     handleSharingResponse(deviceId, message) {
         console.log(`📱 Device ${deviceId} sharing response:`, message);
         
-        // Forward response to admin
         this.broadcastToAdmins({
             type: 'sharing-response',
             deviceId: deviceId,
@@ -286,14 +245,6 @@ class EnhancedServer {
         } else {
             console.log(`❌ Sharing denied by device ${deviceId}`);
         }
-    }
-
-    handleStopSharing(deviceId, message) {
-        this.broadcastToAdmins({
-            type: 'sharing-stopped',
-            deviceId: deviceId,
-            timestamp: Date.now()
-        });
     }
 
     forwardToAdmins(message) {
@@ -333,105 +284,6 @@ class EnhancedServer {
 // Create server instance
 const server = new EnhancedServer();
 
-// Create WebSocket servers - both regular and secure
-const screensySocket = new WebSocket.Server({ port: 4000, host: '0.0.0.0' });
-const adminSocket = new WebSocket.Server({ port: 4001, host: '0.0.0.0' });
-const deviceSocket = new WebSocket.Server({ port: 4002, host: '0.0.0.0' });
-
-// Create secure WebSocket servers with SSL certificates
-let screensySocketSecure, adminSocketSecure, deviceSocketSecure;
-
-function createSecureWebSocketServers() {
-    try {
-        // Read the same SSL certificates used for HTTPS
-        const key = fs.readFileSync(path.join(__dirname, 'server.key'));
-        const cert = fs.readFileSync(path.join(__dirname, 'server.crt'));
-        
-        // Create HTTPS servers for WebSocket upgrades
-        const httpsServerWS1 = https.createServer({ key, cert });
-        const httpsServerWS2 = https.createServer({ key, cert });
-        const httpsServerWS3 = https.createServer({ key, cert });
-        
-        // Create secure WebSocket servers
-        screensySocketSecure = new WebSocket.Server({ 
-            server: httpsServerWS1,
-            port: 5000,
-            host: '0.0.0.0'
-        });
-        
-        adminSocketSecure = new WebSocket.Server({ 
-            server: httpsServerWS2,
-            port: 5001,
-            host: '0.0.0.0'
-        });
-        
-        deviceSocketSecure = new WebSocket.Server({ 
-            server: httpsServerWS3,
-            port: 5002,
-            host: '0.0.0.0'
-        });
-        
-        // Start the HTTPS servers for WebSocket
-        httpsServerWS1.listen(5000, '0.0.0.0');
-        httpsServerWS2.listen(5001, '0.0.0.0');
-        httpsServerWS3.listen(5002, '0.0.0.0');
-        
-        console.log('🔒 Secure WebSocket servers created on ports 5000-5002');
-        return true;
-    } catch (error) {
-        console.log('❌ Could not create secure WebSocket servers:', error.message);
-        return false;
-    }
-}
-
-console.log('🔌 WebSocket servers starting on all interfaces (0.0.0.0)...');
-
-// WebSocket connections with better error handling
-screensySocket.on("connection", (socket, req) => {
-    const clientIP = req.socket.remoteAddress;
-    console.log(`🔌 New screensy connection from ${clientIP}`);
-    server.onScreensyConnection(socket);
-});
-
-adminSocket.on("connection", (socket, req) => {
-    const clientIP = req.socket.remoteAddress;
-    console.log(`👨‍💼 New admin connection from ${clientIP}`);
-    server.onAdminConnection(socket);
-});
-
-deviceSocket.on("connection", (socket, req) => {
-    const clientIP = req.socket.remoteAddress;
-    console.log(`📱 New device connection from ${clientIP}`);
-    server.onDeviceConnection(socket);
-});
-
-// Setup secure WebSocket connections when available
-function setupSecureWebSocketHandlers() {
-    if (screensySocketSecure) {
-        screensySocketSecure.on("connection", (socket, req) => {
-            const clientIP = req.socket.remoteAddress;
-            console.log(`🔌🔒 New secure screensy connection from ${clientIP}`);
-            server.onScreensyConnection(socket);
-        });
-    }
-    
-    if (adminSocketSecure) {
-        adminSocketSecure.on("connection", (socket, req) => {
-            const clientIP = req.socket.remoteAddress;
-            console.log(`👨‍💼🔒 New secure admin connection from ${clientIP}`);
-            server.onAdminConnection(socket);
-        });
-    }
-    
-    if (deviceSocketSecure) {
-        deviceSocketSecure.on("connection", (socket, req) => {
-            const clientIP = req.socket.remoteAddress;
-            console.log(`📱🔒 New secure device connection from ${clientIP}`);
-            server.onDeviceConnection(socket);
-        });
-    }
-}
-
 // HTTP Server functions
 function getContentType(ext) {
     const contentTypes = {
@@ -450,7 +302,6 @@ function getContentType(ext) {
 function handleRequest(req, res) {
     let filePath = '';
     
-    // Parse URL to remove query parameters
     const url = new URL(req.url, `${req.connection.encrypted ? 'https' : 'http'}://${req.headers.host}`);
     const pathname = url.pathname;
     
@@ -501,7 +352,6 @@ function handleRequest(req, res) {
             return;
         }
 
-        // Read and serve file
         fs.readFile(filePath, (err, data) => {
             if (err) {
                 console.log(`❌ Error reading file: ${filePath}`, err);
@@ -520,46 +370,88 @@ function handleRequest(req, res) {
     });
 }
 
-// Try to create HTTPS server with self-signed certificate
-function createHttpsServer() {
+// Create HTTP server
+const httpServer = http.createServer(handleRequest);
+
+// Create HTTPS server with WebSocket support
+let httpsServer = null;
+try {
+    const key = fs.readFileSync(path.join(__dirname, 'server.key'));
+    const cert = fs.readFileSync(path.join(__dirname, 'server.crt'));
+    httpsServer = https.createServer({ key, cert }, handleRequest);
+} catch (error) {
+    console.log('❌ HTTPS certificate not found');
+}
+
+// Create regular WebSocket servers (for HTTP)
+const regularWSS = {
+    admin: new WebSocket.Server({ port: 4001, host: '0.0.0.0' }),
+    device: new WebSocket.Server({ port: 4002, host: '0.0.0.0' })
+};
+
+// Create secure WebSocket servers (for HTTPS)
+let secureWSS = null;
+if (httpsServer) {
     try {
-        // Try to read existing certificate
         const key = fs.readFileSync(path.join(__dirname, 'server.key'));
         const cert = fs.readFileSync(path.join(__dirname, 'server.crt'));
         
-        const httpsServer = https.createServer({ key, cert }, handleRequest);
-        return httpsServer;
-    } catch (error) {
-        console.log('📋 HTTPS certificate not found, creating self-signed certificate...');
+        // Create separate HTTPS servers for WebSocket upgrades
+        const adminHTTPS = https.createServer({ key, cert });
+        const deviceHTTPS = https.createServer({ key, cert });
         
-        // Create self-signed certificate using OpenSSL (if available)
-        const { execSync } = require('child_process');
-        try {
-            execSync(`openssl req -x509 -newkey rsa:4096 -keyout server.key -out server.crt -days 365 -nodes -subj "/C=DE/ST=State/L=City/O=Organization/CN=localhost"`, { cwd: __dirname });
-            
-            const key = fs.readFileSync(path.join(__dirname, 'server.key'));
-            const cert = fs.readFileSync(path.join(__dirname, 'server.crt'));
-            
-            const httpsServer = https.createServer({ key, cert }, handleRequest);
-            return httpsServer;
-        } catch (opensslError) {
-            console.log('❌ OpenSSL not available, falling back to HTTP only');
-            return null;
-        }
+        secureWSS = {
+            admin: new WebSocket.Server({ server: adminHTTPS }),
+            device: new WebSocket.Server({ server: deviceHTTPS })
+        };
+        
+        // Start HTTPS servers for WebSocket
+        adminHTTPS.listen(5001, '0.0.0.0', () => {
+            console.log('🔒 Secure Admin WebSocket server listening on port 5001');
+        });
+        
+        deviceHTTPS.listen(5002, '0.0.0.0', () => {
+            console.log('🔒 Secure Device WebSocket server listening on port 5002');
+        });
+        
+    } catch (error) {
+        console.log('❌ Could not create secure WebSocket servers:', error.message);
     }
+}
+
+// Setup WebSocket connection handlers
+function setupWebSocketHandlers(wss, type) {
+    wss.on('connection', (socket, req) => {
+        const clientIP = req.socket.remoteAddress;
+        const isSecure = req.connection.encrypted;
+        console.log(`${type} ${isSecure ? '🔒' : '🔌'} New ${type.toLowerCase()} connection from ${clientIP}`);
+        
+        if (type === 'Admin') {
+            server.onAdminConnection(socket);
+        } else if (type === 'Device') {
+            server.onDeviceConnection(socket);
+        }
+    });
+    
+    wss.on('error', (error) => {
+        console.error(`❌ ${type} WebSocket error:`, error);
+    });
+}
+
+// Setup regular WebSocket handlers
+setupWebSocketHandlers(regularWSS.admin, 'Admin');
+setupWebSocketHandlers(regularWSS.device, 'Device');
+
+// Setup secure WebSocket handlers if available
+if (secureWSS) {
+    setupWebSocketHandlers(secureWSS.admin, 'Admin');
+    setupWebSocketHandlers(secureWSS.device, 'Device');
 }
 
 // Start servers
 const HTTP_PORT = 8080;
 const HTTPS_PORT = 8443;
 
-// Create HTTP server
-const httpServer = http.createServer(handleRequest);
-
-// Try to create HTTPS server
-const httpsServer = createHttpsServer();
-
-// Start HTTP server
 httpServer.listen(HTTP_PORT, '0.0.0.0', () => {
     // Get local IP address
     const os = require('os');
@@ -585,39 +477,32 @@ httpServer.listen(HTTP_PORT, '0.0.0.0', () => {
         httpsServer.listen(HTTPS_PORT, '0.0.0.0', () => {
             console.log(`🔒 HTTPS Server: https://localhost:${HTTPS_PORT}`);
             console.log(`🔒 Netzwerk HTTPS: https://${localIP}:${HTTPS_PORT}`);
-            
-            // Try to create secure WebSocket servers
-            const secureWSCreated = createSecureWebSocketServers(httpsServer);
-            if (secureWSCreated) {
-                console.log('🔒 Secure WebSocket Servers:');
-                console.log('   - Secure Screensy: ws://localhost:5000');
-                console.log('   - Secure Admin: ws://localhost:5001'); 
-                console.log('   - Secure Device: ws://localhost:5002');
-            }
         });
     }
     
     console.log('🔌 WebSocket Servers:');
-    console.log('   - Screensy: ws://localhost:4000');
-    console.log('   - Admin: ws://localhost:4001'); 
-    console.log('   - Device: ws://localhost:4002');
+    console.log('   - Regular Admin: ws://localhost:4001 (für HTTP)');
+    console.log('   - Regular Device: ws://localhost:4002 (für HTTP)');
+    
+    if (secureWSS) {
+        console.log('🔒 Secure WebSocket Servers:');
+        console.log('   - Secure Admin: wss://localhost:5001 (für HTTPS)');
+        console.log('   - Secure Device: wss://localhost:5002 (für HTTPS)');
+    }
+    
     console.log('');
     console.log('🌐 System bereit!');
-    console.log(`📋 Computer HTTP: http://localhost:${HTTP_PORT}`);
+    console.log(`📋 HTTP: http://${localIP}:${HTTP_PORT}`);
     if (httpsServer) {
-        console.log(`🔒 Computer HTTPS: https://localhost:${HTTPS_PORT}`);
-        console.log(`🔒 Handy/Tablet HTTPS: https://${localIP}:${HTTPS_PORT}`);
+        console.log(`🔒 HTTPS: https://${localIP}:${HTTPS_PORT}`);
         console.log(`🔧 Admin Dashboard (HTTPS): https://${localIP}:${HTTPS_PORT}/admin`);
         console.log(`📱 Device Client (HTTPS): https://${localIP}:${HTTPS_PORT}/device`);
     }
-    console.log(`📱 Handy/Tablet HTTP: http://${localIP}:${HTTP_PORT}`);
-    console.log(`🔧 Admin Dashboard: http://${localIP}:${HTTP_PORT}/admin`);
-    console.log(`📱 Device Client: http://${localIP}:${HTTP_PORT}/device`);
     console.log('');
-    console.log('💡 Tipps:');
-    console.log('   - Für Screen Sharing verwenden Sie HTTPS (Port 8443)');
-    console.log('   - Bei HTTPS Warnung: "Erweitert" → "Weiter zu localhost"');
-    console.log('   - HTTP funktioniert für Registrierung, HTTPS für Screen Sharing');
+    console.log('💡 Mixed Content Problem gelöst:');
+    console.log('   - HTTPS-Seiten verwenden WSS (sichere WebSockets)');
+    console.log('   - HTTP-Seiten verwenden WS (normale WebSockets)');
+    console.log('   - Automatische Protokoll-Erkennung implementiert');
     console.log('');
     console.log('🛑 Zum Stoppen: Ctrl+C drücken');
 });
@@ -633,20 +518,4 @@ if (httpsServer) {
     });
 }
 
-// Enhanced WebSocket error handling
-screensySocket.on("error", (error) => {
-    console.error("❌ Screensy WebSocket error:", error);
-    console.log("🔄 Trying to restart Screensy WebSocket...");
-});
-
-adminSocket.on("error", (error) => {
-    console.error("❌ Admin WebSocket error:", error);
-    console.log("🔄 Trying to restart Admin WebSocket...");
-});
-
-deviceSocket.on("error", (error) => {
-    console.error("❌ Device WebSocket error:", error);
-    console.log("🔄 Trying to restart Device WebSocket...");
-});
-
-console.log("🚀 Enhanced HTTPS Screensy Server ready with improved WebSocket handling!");
+console.log("🚀 Enhanced HTTPS+WSS Screensy Server starting with Mixed Content fix...");

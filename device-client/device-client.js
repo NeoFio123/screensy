@@ -191,10 +191,11 @@ class DeviceClient {
 
     connectToServer() {
         try {
+            // Use secure WebSocket (wss://) for HTTPS pages, regular (ws://) for HTTP pages
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            // Use the same host as the webpage for WebSocket connection
             const host = window.location.hostname;
-            const wsUrl = `${protocol}//${host}:4002/`;
+            const port = window.location.protocol === 'https:' ? '5002' : '4002';
+            const wsUrl = `${protocol}//${host}:${port}/`;
             
             this.log(`Verbinde zu WebSocket: ${wsUrl}`, 'info');
             this.webSocket = new WebSocket(wsUrl);

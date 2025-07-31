@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <h1>🔌 WebSocket Connection Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        const results = document.getElementById('results');
+        
+        function addResult(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            results.appendChild(div);
+        }
+        
+        function testWebSocket(port, name) {
+            addResult(`Testing ${name} WebSocket on port ${port}...`, 'info');
+            
+            const ws = new WebSocket(`ws://${window.location.hostname}:${port}/`);
+            
+            ws.onopen = () => {
+                addResult(`✅ ${name} WebSocket connected successfully!`, 'success');
+                ws.close();
+            };
+            
+            ws.onerror = (error) => {
+                addResult(`❌ ${name} WebSocket connection failed: ${error}`, 'error');
+            };
+            
+            ws.onclose = (event) => {
+                if (event.code === 1000) {
+                    addResult(`🔌 ${name} WebSocket closed normally`, 'info');
+                } else {
+                    addResult(`❌ ${name} WebSocket closed with error: ${event.code} ${event.reason}`, 'error');
+                }
+            };
+        }
+        
+        // Test all WebSocket ports
+        addResult(`Testing WebSocket connections to ${window.location.hostname}...`, 'info');
+        addResult(`Page protocol: ${window.location.protocol}`, 'info');
+        
+        if (window.location.protocol === 'https:') {
+            addResult('HTTPS page detected - testing secure WebSockets (WSS)', 'info');
+            setTimeout(() => testSecureWebSocket(5001, 'Admin'), 500);
+            setTimeout(() => testSecureWebSocket(5002, 'Device'), 1000);
+        } else {
+            addResult('HTTP page detected - testing regular WebSockets (WS)', 'info');
+            setTimeout(() => testWebSocket(4001, 'Admin'), 500);
+            setTimeout(() => testWebSocket(4002, 'Device'), 1000);
+        }
+        
+        function testSecureWebSocket(port, name) {
+            addResult(`Testing ${name} Secure WebSocket on port ${port}...`, 'info');
+            
+            const ws = new WebSocket(`wss://${window.location.hostname}:${port}/`);
+            
+            ws.onopen = () => {
+                addResult(`✅ ${name} Secure WebSocket connected successfully!`, 'success');
+                ws.close();
+            };
+            
+            ws.onerror = (error) => {
+                addResult(`❌ ${name} Secure WebSocket connection failed: ${error}`, 'error');
+            };
+            
+            ws.onclose = (event) => {
+                if (event.code === 1000) {
+                    addResult(`🔌 ${name} Secure WebSocket closed normally`, 'info');
+                } else {
+                    addResult(`❌ ${name} Secure WebSocket closed with error: ${event.code} ${event.reason}`, 'error');
+                }
+            };
+        }
+    </script>
+</body>
+</html>
