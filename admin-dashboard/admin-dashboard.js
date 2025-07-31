@@ -387,6 +387,31 @@ class AdminDashboard {
 
         connection.onconnectionstatechange = () => {
             this.log(`WebRTC Status für ${deviceId}: ${connection.connectionState}`, 'info');
+            
+            // If connection is established, process any pending ICE candidates
+            if (connection.connectionState === 'connected' && connection.pendingCandidates) {
+                this.log(`Verarbeite ${connection.pendingCandidates.length} verzögerte ICE Candidates für ${deviceId}`, 'info');
+                connection.pendingCandidates.forEach(candidate => {
+                    connection.addIceCandidate(new RTCIceCandidate(candidate))
+                        .catch(error => this.log(`Verzögerter ICE Candidate Fehler: ${error.message}`, 'error'));
+                });
+                connection.pendingCandidates = [];
+            }
+        };
+
+        // Add state change monitoring
+        connection.onsignalingstatechange = () => {
+            this.log(`WebRTC Signaling State für ${deviceId}: ${connection.signalingState}`, 'info');
+            
+            // If we've set remote description, process pending candidates
+            if (connection.signalingState === 'stable' && connection.pendingCandidates) {
+                this.log(`Verarbeite verzögerte ICE Candidates nach Remote Description für ${deviceId}`, 'info');
+                connection.pendingCandidates.forEach(candidate => {
+                    connection.addIceCandidate(new RTCIceCandidate(candidate))
+                        .catch(error => this.log(`Verzögerter ICE Candidate Fehler: ${error.message}`, 'error'));
+                });
+                connection.pendingCandidates = [];
+            }
         };
 
         this.rtcConnections.set(deviceId, connection);
@@ -406,44 +431,84 @@ class AdminDashboard {
         }
         
         if (connection) {
-            // Auto-show the sharing stream
-            this.autoShowSharingStream(deviceId, targetScreen);
+            // Check connection state before proceeding
+            this.log(`WebRTC Zustand vor Offer: ${connection.signalingState}`, 'info');
             
-            connection.setRemoteDescription(new RTCSessionDescription(message.offer))
-                .then(() => connection.createAnswer())
-                .then(answer => {
-                    connection.setLocalDescription(answer);
-                    this.sendMessage({
-                        type: 'webrtc-answer',
-                        deviceId: deviceId,
-                        answer: answer,
-                        timestamp: Date.now()
+            if (connection.signalingState === 'stable' || connection.signalingState === 'have-local-offer') {
+                // Auto-show the sharing stream
+                this.autoShowSharingStream(deviceId, targetScreen);
+                
+                connection.setRemoteDescription(new RTCSessionDescription(message.offer))
+                    .then(() => {
+                        this.log(`Remote Description gesetzt für ${deviceId}, Zustand: ${connection.signalingState}`, 'info');
+                        return connection.createAnswer();
+                    })
+                    .then(answer => {
+                        return connection.setLocalDescription(answer);
+                    })
+                    .then(() => {
+                        this.sendMessage({
+                            type: 'webrtc-answer',
+                            deviceId: deviceId,
+                            answer: connection.localDescription,
+                            timestamp: Date.now()
+                        });
+                        this.log(`WebRTC Antwort gesendet für ${deviceId}, Zustand: ${connection.signalingState}`, 'success');
+                    })
+                    .catch(error => {
+                        this.log(`WebRTC Fehler für ${deviceId}: ${error.message} (Zustand: ${connection.signalingState})`, 'error');
                     });
-                    this.log(`WebRTC Antwort gesendet für ${deviceId}`, 'success');
-                })
-                .catch(error => {
-                    this.log('WebRTC Fehler: ' + error.message, 'error');
-                });
+            } else {
+                this.log(`WebRTC Verbindung in ungültigem Zustand: ${connection.signalingState}`, 'warning');
+                // Reset connection if in wrong state
+                this.rtcConnections.delete(deviceId);
+                setTimeout(() => {
+                    this.handleWebRTCOffer(message);
+                }, 100);
+            }
         }
     }
 
     handleWebRTCAnswer(message) {
         const connection = this.rtcConnections.get(message.deviceId);
         if (connection) {
-            connection.setRemoteDescription(new RTCSessionDescription(message.answer))
-                .catch(error => {
-                    this.log('WebRTC Fehler: ' + error.message, 'error');
-                });
+            // Check if we're in the right state to receive an answer
+            this.log(`WebRTC Zustand vor Answer: ${connection.signalingState}`, 'info');
+            
+            if (connection.signalingState === 'have-local-offer') {
+                connection.setRemoteDescription(new RTCSessionDescription(message.answer))
+                    .then(() => {
+                        this.log(`WebRTC Answer verarbeitet für ${message.deviceId}, Zustand: ${connection.signalingState}`, 'success');
+                    })
+                    .catch(error => {
+                        this.log(`WebRTC Answer Fehler für ${message.deviceId}: ${error.message} (Zustand: ${connection.signalingState})`, 'error');
+                    });
+            } else {
+                this.log(`WebRTC Answer ignoriert - falscher Zustand: ${connection.signalingState}`, 'warning');
+            }
         }
     }
 
     handleWebRTCCandidate(message) {
         const connection = this.rtcConnections.get(message.deviceId);
-        if (connection) {
-            connection.addIceCandidate(new RTCIceCandidate(message.candidate))
-                .catch(error => {
-                    this.log('WebRTC Fehler: ' + error.message, 'error');
-                });
+        if (connection && message.candidate) {
+            // Only add ICE candidates if remote description is set
+            if (connection.remoteDescription) {
+                connection.addIceCandidate(new RTCIceCandidate(message.candidate))
+                    .then(() => {
+                        this.log(`ICE Candidate hinzugefügt für ${message.deviceId}`, 'info');
+                    })
+                    .catch(error => {
+                        this.log(`ICE Candidate Fehler für ${message.deviceId}: ${error.message}`, 'error');
+                    });
+            } else {
+                this.log(`ICE Candidate verzögert - Remote Description noch nicht gesetzt für ${message.deviceId}`, 'warning');
+                // Store candidate for later
+                if (!connection.pendingCandidates) {
+                    connection.pendingCandidates = [];
+                }
+                connection.pendingCandidates.push(message.candidate);
+            }
         }
     }
 
@@ -1206,15 +1271,26 @@ class AdminDashboard {
         }
         
         if (screenElement) {
-            // Create video element
+            // Create video element with better autoplay handling
             const video = document.createElement('video');
             video.srcObject = stream;
             video.autoplay = true;
-            video.muted = true;
+            video.muted = true; // Required for autoplay in most browsers
+            video.playsInline = true; // Required for mobile
+            video.controls = false;
             video.style.width = '100%';
             video.style.height = '100%';
             video.style.objectFit = 'contain';
             video.style.backgroundColor = '#000';
+            
+            // Add event listeners for better control
+            video.addEventListener('loadedmetadata', () => {
+                console.log('Video metadata loaded');
+            });
+            
+            video.addEventListener('canplay', () => {
+                console.log('Video can start playing');
+            });
             
             // Clear existing content and add video
             const screenContent = screenElement.querySelector('.screen-content');
@@ -1291,13 +1367,77 @@ class AdminDashboard {
             console.log(`✅ Live-Stream successfully displayed for ${deviceName}`);
             this.log(`Live-Stream angezeigt für ${deviceName} auf ${targetScreen || 'verfügbarem Display'}`, 'success');
             
-            // Force video to play
-            video.play().catch(e => console.log('Video autoplay prevented:', e));
+            // Better video autoplay handling
+            const playVideo = async () => {
+                try {
+                    // Ensure video is not paused before playing
+                    if (video.paused) {
+                        await video.play();
+                        console.log('✅ Video autoplay successful');
+                    }
+                } catch (error) {
+                    if (error.name === 'AbortError') {
+                        console.log('⚠️ Video play was interrupted - retrying...');
+                        // Wait a bit and try again
+                        setTimeout(() => {
+                            if (video.paused) {
+                                video.play().catch(e => console.log('Video autoplay still prevented:', e.name));
+                            }
+                        }, 100);
+                    } else {
+                        console.log('Video autoplay prevented:', error.name);
+                        // Add click-to-play fallback
+                        this.addClickToPlayFallback(video, screenElement);
+                    }
+                }
+            };
+            
+            playVideo();
             
         } else {
             console.error('❌ No screen element found for stream display');
             this.log('Ziel-Display nicht verfügbar', 'warning');
         }
+    }
+
+    addClickToPlayFallback(video, screenElement) {
+        // Create click-to-play overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'click-to-play-overlay';
+        overlay.innerHTML = `
+            <div class="play-button">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="white">
+                    <path d="M8 5v14l11-7z"/>
+                </svg>
+                <p style="color: white; margin-top: 10px;">Klicken zum Abspielen</p>
+            </div>
+        `;
+        overlay.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1000;
+            text-align: center;
+        `;
+        
+        overlay.addEventListener('click', () => {
+            video.play().then(() => {
+                overlay.remove();
+                console.log('✅ Video started after user interaction');
+            }).catch(e => console.log('Still could not play video:', e));
+        });
+        
+        // Add overlay to screen element
+        const container = screenElement.querySelector('.screen-content') || screenElement;
+        container.style.position = 'relative';
+        container.appendChild(overlay);
     }
 
     stopDeviceStream(deviceId) {
@@ -1373,12 +1513,18 @@ class AdminDashboard {
             // Stop the video
             if (streamData.video) {
                 streamData.video.srcObject = null;
+                streamData.video.pause();
             }
             
             // Clear screen content and remove stream class
             if (streamData.screenElement) {
                 const screenContent = streamData.screenElement.querySelector('.screen-content');
                 screenContent.classList.remove('has-stream');
+                
+                // Remove any click-to-play overlays
+                const overlays = screenContent.querySelectorAll('.click-to-play-overlay');
+                overlays.forEach(overlay => overlay.remove());
+                
                 screenContent.innerHTML = '<span class="no-content">Kein Inhalt</span>';
             }
             
