@@ -419,9 +419,12 @@ class DeviceClient {
 
     async startScreenCapture(type = 'screen') {
         try {
-            // Check if screen capture is supported
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-                // For mobile devices without getDisplayMedia, try getUserMedia with video
+            const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+            
+            // Check if screen capture is supported or if we're on mobile
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia || isMobile) {
+                this.log('🔄 Screen Sharing nicht unterstützt - wechsle zu Kamera...', 'warning');
+                // For mobile devices or unsupported browsers, use camera
                 return this.startMobileCameraCapture();
             }
 
@@ -437,29 +440,47 @@ class DeviceClient {
             // Adjust constraints based on capture type
             if (type === 'tab') {
                 constraints.video.mediaSource = 'browser';
+                this.log('🌐 Starte Tab-Aufnahme...', 'info');
             } else if (type === 'window') {
                 constraints.video.mediaSource = 'window';
+                this.log('🪟 Starte Fenster-Aufnahme...', 'info');
             } else {
                 constraints.video.mediaSource = 'screen';
+                this.log('🖥️ Starte Bildschirm-Aufnahme...', 'info');
             }
 
-            this.log(`Starte Screen Capture (${type})...`);
-            this.mediaStream = await navigator.mediaDevices.getDisplayMedia(constraints);
-            
-            // Show preview
-            const preview = document.getElementById('local-preview');
-            preview.srcObject = this.mediaStream;
-            
-            // Track when sharing stops
-            this.mediaStream.getVideoTracks()[0].addEventListener('ended', () => {
-                this.handleStreamEnded();
-            });
+            try {
+                this.mediaStream = await navigator.mediaDevices.getDisplayMedia(constraints);
+                
+                // Show preview
+                const preview = document.getElementById('local-preview');
+                preview.srcObject = this.mediaStream;
+                
+                // Track when sharing stops
+                this.mediaStream.getVideoTracks()[0].addEventListener('ended', () => {
+                    this.handleStreamEnded();
+                });
 
-            this.updateSharingStatus('sharing');
-            this.log(`Screen Capture gestartet (${type})`, 'success');
-            
-            // Start WebRTC connection
-            this.setupWebRTCConnection();
+                this.updateSharingStatus('sharing');
+                this.log(`✅ Screen Capture gestartet (${type})`, 'success');
+                
+                // Show success notification
+                this.showNotification(`✅ ${type === 'screen' ? 'Bildschirm' : type === 'window' ? 'Fenster' : 'Tab'} wird geteilt`, 'success');
+                
+                // Start WebRTC connection
+                this.setupWebRTCConnection();
+                
+            } catch (screenError) {
+                this.log(`⚠️ Screen Capture fehlgeschlagen: ${screenError.message}`, 'warning');
+                
+                // If screen capture fails, try camera as fallback
+                if (screenError.name === 'NotAllowedError' || screenError.name === 'NotSupportedError') {
+                    this.log('🔄 Fallback zu Kamera-Sharing...', 'info');
+                    return this.startMobileCameraCapture();
+                } else {
+                    throw screenError;
+                }
+            }
             
         } catch (error) {
             this.handleCaptureError(error);
@@ -468,19 +489,49 @@ class DeviceClient {
 
     async startMobileCameraCapture() {
         try {
-            this.log('Screen Sharing nicht verfügbar - verwende Kamera...', 'warning');
+            this.log('🔄 Screen Sharing nicht verfügbar - verwende Kamera...', 'warning');
             
+            // Enhanced mobile camera constraints
             const constraints = {
                 video: {
                     width: { ideal: 1280, max: 1920 },
                     height: { ideal: 720, max: 1080 },
-                    frameRate: { ideal: 30 },
-                    facingMode: 'environment' // Use back camera
+                    frameRate: { ideal: 30, max: 30 },
+                    facingMode: 'environment' // Use back camera for "screen sharing"
                 },
                 audio: true
             };
 
-            this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+            // For mobile devices, try different constraint combinations
+            const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+            
+            if (isMobile) {
+                // Try environment camera first (back camera)
+                try {
+                    this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    this.log('📱 Rückkamera erfolgreich aktiviert', 'success');
+                } catch (backCameraError) {
+                    this.log('⚠️ Rückkamera nicht verfügbar, versuche Frontkamera...', 'warning');
+                    
+                    // Fallback to front camera
+                    constraints.video.facingMode = 'user';
+                    try {
+                        this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+                        this.log('📱 Frontkamera erfolgreich aktiviert', 'success');
+                    } catch (frontCameraError) {
+                        this.log('⚠️ Frontkamera nicht verfügbar, verwende Standard...', 'warning');
+                        
+                        // Final fallback - any camera
+                        delete constraints.video.facingMode;
+                        this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+                        this.log('📱 Standard-Kamera aktiviert', 'success');
+                    }
+                }
+            } else {
+                // Desktop fallback to user media
+                this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+                this.log('💻 Desktop-Kamera aktiviert', 'success');
+            }
             
             // Show preview
             const preview = document.getElementById('local-preview');
@@ -492,12 +543,16 @@ class DeviceClient {
             });
 
             this.updateSharingStatus('sharing');
-            this.log('Kamera-Sharing gestartet (mobile Fallback)', 'success');
+            
+            // Inform user about mobile fallback
+            this.showNotification('📱 Mobile Kamera-Sharing aktiv (Screen Sharing nicht verfügbar)', 'info');
+            this.log('✅ Kamera-Sharing gestartet (mobile Fallback)', 'success');
             
             // Start WebRTC connection
             this.setupWebRTCConnection();
             
         } catch (error) {
+            this.log(`❌ Kamera-Zugriff fehlgeschlagen: ${error.message}`, 'error');
             this.handleCaptureError(error);
         }
     }
@@ -550,16 +605,28 @@ class DeviceClient {
             }
         };
 
-        // Handle connection state changes
+        // Handle connection state changes with enhanced monitoring
         this.peerConnection.onconnectionstatechange = () => {
             const state = this.peerConnection.connectionState;
-            this.log(`WebRTC Verbindungsstatus: ${state}`);
+            this.log(`WebRTC Verbindungsstatus: ${state}`, 'info');
             
             if (state === 'connected') {
                 this.updateSharingStatus('sharing');
+                this.log('✅ WebRTC Verbindung erfolgreich aufgebaut', 'success');
             } else if (state === 'disconnected' || state === 'failed') {
                 this.updateSharingStatus('error');
+                this.log('❌ WebRTC Verbindung unterbrochen', 'error');
             }
+        };
+
+        // Enhanced signaling state monitoring
+        this.peerConnection.onsignalingstatechange = () => {
+            this.log(`WebRTC Signaling State: ${this.peerConnection.signalingState}`, 'info');
+        };
+
+        // Handle ice connection state
+        this.peerConnection.oniceconnectionstatechange = () => {
+            this.log(`ICE Connection State: ${this.peerConnection.iceConnectionState}`, 'info');
         };
 
         // Create and send offer
@@ -586,18 +653,90 @@ class DeviceClient {
 
     async handleWebRTCAnswer(message) {
         try {
-            await this.peerConnection.setRemoteDescription(new RTCSessionDescription(message.answer));
-            this.log('WebRTC Answer empfangen');
+            // Check peer connection state before setting remote description
+            if (!this.peerConnection) {
+                this.log('❌ Kein PeerConnection verfügbar für Answer', 'error');
+                return;
+            }
+
+            const currentState = this.peerConnection.signalingState;
+            this.log(`WebRTC Zustand vor Answer: ${currentState}`, 'info');
+
+            // Only set remote description if we're in the right state
+            if (currentState === 'have-local-offer') {
+                await this.peerConnection.setRemoteDescription(new RTCSessionDescription(message.answer));
+                this.log('✅ WebRTC Answer verarbeitet', 'success');
+            } else if (currentState === 'stable') {
+                this.log('⚠️ WebRTC Answer ignoriert - Verbindung bereits stabil', 'warning');
+            } else {
+                this.log(`⚠️ WebRTC Answer ignoriert - falscher Zustand: ${currentState}`, 'warning');
+                
+                // Try to reset and restart connection
+                if (currentState === 'closed' || currentState === 'failed') {
+                    this.log('🔄 Verbindung wird zurückgesetzt...', 'info');
+                    this.setupWebRTCConnection();
+                }
+            }
         } catch (error) {
-            this.log(`WebRTC Answer Fehler: ${error.message}`, 'error');
+            this.log(`❌ WebRTC Answer Fehler: ${error.message}`, 'error');
+            
+            // If it's a state error, try to recover
+            if (error.message.includes('wrong state') || error.message.includes('stable')) {
+                this.log('🔄 State-Fehler erkannt - versuche Wiederherstellung...', 'warning');
+                setTimeout(() => {
+                    if (this.mediaStream && !this.peerConnection) {
+                        this.setupWebRTCConnection();
+                    }
+                }, 1000);
+            }
         }
     }
 
     async handleWebRTCCandidate(message) {
         try {
-            await this.peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
+            if (!this.peerConnection) {
+                this.log('❌ Kein PeerConnection für ICE Candidate verfügbar', 'error');
+                return;
+            }
+
+            if (!message.candidate) {
+                this.log('⚠️ Leerer ICE Candidate empfangen', 'warning');
+                return;
+            }
+
+            // Check if remote description is set before adding candidates
+            if (this.peerConnection.remoteDescription) {
+                await this.peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
+                this.log('✅ ICE Candidate hinzugefügt', 'info');
+            } else {
+                this.log('⏳ ICE Candidate verzögert - Remote Description fehlt noch', 'warning');
+                
+                // Store candidate for later if needed
+                if (!this.pendingCandidates) {
+                    this.pendingCandidates = [];
+                }
+                this.pendingCandidates.push(message.candidate);
+                
+                // Process after remote description is set
+                const checkRemoteDescription = () => {
+                    if (this.peerConnection && this.peerConnection.remoteDescription && this.pendingCandidates) {
+                        this.log(`🔄 Verarbeite ${this.pendingCandidates.length} verzögerte ICE Candidates`, 'info');
+                        this.pendingCandidates.forEach(async (candidate) => {
+                            try {
+                                await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                            } catch (err) {
+                                this.log(`❌ Verzögerter ICE Candidate Fehler: ${err.message}`, 'error');
+                            }
+                        });
+                        this.pendingCandidates = [];
+                    }
+                };
+                
+                // Check again in a moment
+                setTimeout(checkRemoteDescription, 100);
+            }
         } catch (error) {
-            this.log(`WebRTC Candidate Fehler: ${error.message}`, 'error');
+            this.log(`❌ ICE Candidate Fehler: ${error.message}`, 'error');
         }
     }
 
@@ -740,10 +879,57 @@ class DeviceClient {
         }
     }
 
+    showNotification(message, type = 'info') {
+        // Create notification element if it doesn't exist
+        let notification = document.getElementById('device-notification');
+        if (!notification) {
+            notification = document.createElement('div');
+            notification.id = 'device-notification';
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 8px;
+                color: white;
+                font-weight: bold;
+                z-index: 10000;
+                max-width: 300px;
+                word-wrap: break-word;
+                transition: all 0.3s ease;
+                transform: translateX(100%);
+            `;
+            document.body.appendChild(notification);
+        }
+
+        // Set notification style based on type
+        const colors = {
+            success: '#28a745',
+            warning: '#ffc107',
+            error: '#dc3545',
+            info: '#17a2b8'
+        };
+
+        notification.style.backgroundColor = colors[type] || colors.info;
+        notification.textContent = message;
+        
+        // Show notification
+        notification.style.transform = 'translateX(0)';
+        
+        // Hide after 5 seconds
+        setTimeout(() => {
+            notification.style.transform = 'translateX(100%)';
+        }, 5000);
+
+        // Also log the notification
+        this.log(message, type);
+    }
+
     showError(message) {
         document.getElementById('error-message').textContent = message;
         this.showModal('error-modal');
         this.log(`Fehler: ${message}`, 'error');
+        this.showNotification(`❌ ${message}`, 'error');
     }
 
     sendMessage(message) {
