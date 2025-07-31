@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shop Device - Screen Sharing Client</title>
+    <link rel="stylesheet" href="/device-client/device-styles.css">
+</head>
+<body>
+    <div class="device-container">
+        <header class="device-header">
+            <h1>Shop Screen Sharing</h1>
+            <div class="device-info">
+                <span id="device-name">Gerät</span>
+                <div class="connection-status">
+                    <span id="connection-indicator" class="status-indicator offline"></span>
+                    <span id="connection-text">Offline</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="device-main">
+            <div class="status-section">
+                <div class="device-status-card">
+                    <h2>Gerätestatus</h2>
+                    <div class="status-info">
+                        <div class="status-item">
+                            <span class="label">ID:</span>
+                            <span id="device-id" class="value">Nicht registriert</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">Typ:</span>
+                            <span id="device-type" class="value">-</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">Tisch:</span>
+                            <span id="table-number" class="value">-</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">Status:</span>
+                            <span id="sharing-status" class="value">Bereit</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="registration-card">
+                    <h2>Geräteregistrierung</h2>
+                    <form id="device-registration-form">
+                        <div class="form-group">
+                            <label for="reg-device-name">Gerätename:</label>
+                            <input type="text" id="reg-device-name" name="device-name" placeholder="z.B. iPhone 1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="reg-device-type">Gerätetyp:</label>
+                            <select id="reg-device-type" name="device-type" required>
+                                <option value="">Bitte wählen</option>
+                                <option value="phone">Smartphone</option>
+                                <option value="tablet">Tablet</option>
+                                <option value="laptop">Laptop</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="reg-table-number">Tisch:</label>
+                            <select id="reg-table-number" name="table-number" required>
+                                <option value="">Bitte wählen</option>
+                                <option value="1">Tisch 1</option>
+                                <option value="2">Tisch 2</option>
+                                <option value="3">Tisch 3</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Registrieren</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="sharing-section">
+                <div class="sharing-controls">
+                    <h2>Screen Sharing</h2>
+                    <div class="browser-compatibility" id="browser-compatibility" style="display: none;">
+                        <div class="compatibility-warning">
+                            ⚠️ <strong>Browser-Kompatibilitätsproblem</strong><br>
+                            Ihr Browser unterstützt Screen Sharing möglicherweise nicht vollständig.<br>
+                            <small>Empfohlen: Chrome, Firefox oder Edge</small>
+                        </div>
+                    </div>
+                    <div class="sharing-status">
+                        <div id="sharing-indicator" class="sharing-indicator ready">
+                            <span class="indicator-text">Bereit für Sharing</span>
+                        </div>
+                    </div>
+                    
+                    <div class="screen-selection-section">
+                        <h3>Ziel-Display wählen</h3>
+                        <div class="screen-grid">
+                            <div class="screen-option" data-screen="1-1">
+                                <div class="screen-preview">📺</div>
+                                <span class="screen-label">Tisch 1 - Display 1</span>
+                            </div>
+                            <div class="screen-option" data-screen="1-2">
+                                <div class="screen-preview">📺</div>
+                                <span class="screen-label">Tisch 1 - Display 2</span>
+                            </div>
+                            <div class="screen-option" data-screen="2-1">
+                                <div class="screen-preview">📺</div>
+                                <span class="screen-label">Tisch 2 - Display 1</span>
+                            </div>
+                            <div class="screen-option" data-screen="2-2">
+                                <div class="screen-preview">📺</div>
+                                <span class="screen-label">Tisch 2 - Display 2</span>
+                            </div>
+                            <div class="screen-option" data-screen="3-1">
+                                <div class="screen-preview">📺</div>
+                                <span class="screen-label">Tisch 3 - Display 1</span>
+                            </div>
+                            <div class="screen-option" data-screen="3-2">
+                                <div class="screen-preview">📺</div>
+                                <span class="screen-label">Tisch 3 - Display 2</span>
+                            </div>
+                        </div>
+                        <div class="selected-screen-info">
+                            <span id="selected-screen-text">Kein Display ausgewählt</span>
+                        </div>
+                    </div>
+                    
+                    <div class="control-buttons">
+                        <button id="start-sharing" class="btn btn-success" disabled>Sharing starten</button>
+                        <button id="stop-sharing" class="btn btn-danger" disabled>Sharing stoppen</button>
+                    </div>
+                </div>
+
+                <div class="preview-section">
+                    <h3>Vorschau</h3>
+                    <div class="preview-container">
+                        <video id="local-preview" autoplay muted playsinline>
+                            <div class="no-preview">Keine Vorschau verfügbar</div>
+                        </video>
+                    </div>
+                </div>
+            </div>
+
+            <div class="logs-section">
+                <h2>Aktivitätsprotokoll</h2>
+                <div id="device-logs" class="log-container">
+                    <div class="log-entry">Gerät gestartet</div>
+                </div>
+                <button id="clear-device-logs" class="btn btn-secondary">Logs löschen</button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Permission Request Modal -->
+    <div id="permission-request-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Screen Sharing Anfrage</h2>
+            <p>Der Trainer möchte Ihren Bildschirm auf dem Display anzeigen.</p>
+            <p><strong>Möchten Sie das erlauben?</strong></p>
+            <div class="modal-actions">
+                <button id="allow-sharing" class="btn btn-success">Erlauben</button>
+                <button id="deny-sharing" class="btn btn-danger">Verweigern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Screen Capture Selection Modal -->
+    <div id="capture-selection-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Bildschirm auswählen</h2>
+            <p>Wählen Sie aus, was Sie teilen möchten:</p>
+            <div class="capture-options">
+                <button id="share-screen" class="btn btn-primary">Gesamter Bildschirm</button>
+                <button id="share-window" class="btn btn-primary">Einzelnes Fenster</button>
+                <button id="share-tab" class="btn btn-primary">Browser Tab</button>
+                <button id="share-camera" class="btn btn-secondary" style="display: none;">Kamera</button>
+            </div>
+            <button id="cancel-capture" class="btn btn-secondary">Abbrechen</button>
+        </div>
+    </div>
+
+    <!-- Error Modal -->
+    <div id="error-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Fehler</h2>
+            <p id="error-message">Ein Fehler ist aufgetreten.</p>
+            <button id="close-error" class="btn btn-primary">OK</button>
+        </div>
+    </div>
+
+    <script src="/device-client/device-client.js"></script>
+</body>
+</html>

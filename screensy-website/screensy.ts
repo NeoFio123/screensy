@@ -471,8 +471,7 @@ class Room {
 
         const webSocketProtocol =
             window.location.protocol === "http" ? "ws" : "wss";
-        const webSocketUrl =
-            webSocketProtocol + "://" + location.host + location.pathname;
+        const webSocketUrl = webSocketProtocol + "://10.0.1.216:4000/";
 
         this.webSocket = new WebSocket(webSocketUrl);
         this.webSocket.onerror = () => showPopup("websocket-connect-failed");
@@ -481,12 +480,8 @@ class Room {
             this.webSocket.send(JSON.stringify(message));
         this.rtcConfig = {
             iceServers: [
-                { urls: "stun:" + location.hostname },
-                {
-                    urls: "turn:" + location.hostname,
-                    username: "screensy",
-                    credential: "screensy",
-                },
+                { urls: "stun:stun.l.google.com:19302" },
+                { urls: "stun:stun1.l.google.com:19302" },
             ],
             iceCandidatePoolSize: 8,
         };

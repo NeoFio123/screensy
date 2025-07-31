@@ -28,17 +28,57 @@ func main() {
 
 	state.fileCache, state.matcher = fetchTranslations()
 
+	// Set up routes
+	http.HandleFunc("/", handleRoot)
+	http.HandleFunc("/admin", handleAdmin)
+	http.HandleFunc("/device", handleDevice)
+	
+	// Serve static files
+	http.Handle("/admin-dashboard/", http.StripPrefix("/admin-dashboard/", http.FileServer(http.Dir("./admin-dashboard"))))
+	http.Handle("/device-client/", http.StripPrefix("/device-client/", http.FileServer(http.Dir("./device-client"))))
+	
+	// Serve original screensy files
+	http.Handle("/styles.css", http.FileServer(http.Dir(".")))
+	http.Handle("/screensy.js", http.FileServer(http.Dir(".")))
+
 	server := http.Server{
-		Addr:         fmt.Sprintf(":%d", port),
-		Handler:      http.HandlerFunc(getServer(http.FileServer(http.Dir(".")))),
+		Addr:         fmt.Sprintf("0.0.0.0:%d", port),
 		ReadTimeout:  timeout,
 		WriteTimeout: timeout,
 		IdleTimeout:  timeout,
 	}
 
-	log.Printf("Server started on port %d", port)
+	log.Printf("Enhanced Screensy Server started on port %d", port)
+	log.Printf("Access points:")
+	log.Printf("- Main screensy: http://localhost:%d/", port)
+	log.Printf("- Admin dashboard: http://localhost:%d/admin", port)
+	log.Printf("- Device client: http://localhost:%d/device", port)
+	
 	err := server.ListenAndServe()
 	log.Fatal(err)
+}
+
+func handleRoot(writer http.ResponseWriter, request *http.Request) {
+	if request.URL.Path == "/" || request.URL.Path == "/index.html" {
+		acceptLanguageHeader := request.Header.Get("Accept-Language")
+		tags, _, _ := language.ParseAcceptLanguage(acceptLanguageHeader)
+		_, idx, _ := state.matcher.Match(tags...)
+		fileContent := state.fileCache[idx]
+
+		http.ServeContent(writer, request, "index.html", time.Time{}, bytes.NewReader(fileContent))
+	} else {
+		// Serve other static files
+		fileServer := http.FileServer(http.Dir("."))
+		fileServer.ServeHTTP(writer, request)
+	}
+}
+
+func handleAdmin(writer http.ResponseWriter, request *http.Request) {
+	http.ServeFile(writer, request, "./admin-dashboard/index.html")
+}
+
+func handleDevice(writer http.ResponseWriter, request *http.Request) {
+	http.ServeFile(writer, request, "./device-client/index.html")
 }
 
 func fetchTranslations() ([][]byte, language.Matcher) {
@@ -83,19 +123,4 @@ func fetchTranslations() ([][]byte, language.Matcher) {
 	}
 
 	return fileCache, language.NewMatcher(languageTags)
-}
-
-func getServer(fileServer http.Handler) func(writer http.ResponseWriter, request *http.Request) {
-	return func(writer http.ResponseWriter, request *http.Request) {
-		if request.URL.Path == "/" || request.URL.Path == "/index.html" {
-			acceptLanguageHeader := request.Header.Get("Accept-Language")
-			tags, _, _ := language.ParseAcceptLanguage(acceptLanguageHeader)
-			_, idx, _ := state.matcher.Match(tags...)
-			fileContent := state.fileCache[idx]
-
-			http.ServeContent(writer, request, "index.html", time.Time{}, bytes.NewReader(fileContent))
-		} else {
-			fileServer.ServeHTTP(writer, request)
-		}
-	}
 }

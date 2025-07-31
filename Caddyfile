@@ -8,7 +8,22 @@ localhost {
 	@rendezvous {
 		header Connection *Upgrade*
 		header Upgrade websocket
+		path /
+	}
+
+	@admin-ws {
+		header Connection *Upgrade*
+		header Upgrade websocket
+		path /admin-ws
+	}
+
+	@device-ws {
+		header Connection *Upgrade*
+		header Upgrade websocket
+		path /device-ws
 	}
 
 	reverse_proxy @rendezvous rendezvous:4000
+	reverse_proxy @admin-ws rendezvous:4001
+	reverse_proxy @device-ws rendezvous:4002
 }

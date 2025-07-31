@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shop Screen Sharing - Admin Dashboard</title>
+    <link rel="stylesheet" href="/admin-dashboard/admin-styles.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <header class="dashboard-header">
+            <h1>Shop Screen Sharing - Admin Dashboard</h1>
+            <div class="header-controls">
+                <div class="connection-status">
+                    <span id="connection-indicator" class="status-indicator offline"></span>
+                    <span id="connection-text">Offline</span>
+                </div>
+                <div class="device-stats">
+                    <span id="total-devices" class="stat">0 Geräte</span>
+                    <span id="online-devices" class="stat">0 online</span>
+                </div>
+                <button id="start-sharing-modal" class="btn btn-primary">Screen Sharing starten</button>
+                <button id="refresh-devices" class="btn btn-secondary">Aktualisieren</button>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Real Devices Section -->
+            <div class="devices-overview">
+                <h2>Registrierte Geräte</h2>
+                <div class="devices-container" id="registered-devices">
+                    <div class="no-devices-message">
+                        <p>Noch keine Geräte registriert</p>
+                        <p>Geräte können sich über <strong>http://10.0.1.216:8080/device</strong> registrieren</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tables-grid">
+                <!-- Table 1 -->
+                <div class="table-section" data-table="1">
+                    <h2>Tisch 1</h2>
+                    <div class="table-visual">
+                        <div class="screens-row">
+                            <div class="screen" data-screen="1-1">
+                                <span class="screen-label">Display 1</span>
+                                <div class="screen-content" id="screen-1-1">
+                                    <span class="no-content">Kein Inhalt</span>
+                                </div>
+                            </div>
+                            <div class="screen" data-screen="1-2">
+                                <span class="screen-label">Display 2</span>
+                                <div class="screen-content" id="screen-1-2">
+                                    <span class="no-content">Kein Inhalt</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="devices-row" id="table-1-devices">
+                            <!-- Dynamically populated with registered devices -->
+                            <div class="no-devices-at-table">Keine Geräte an diesem Tisch registriert</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table 2 -->
+                <div class="table-section" data-table="2">
+                    <h2>Tisch 2</h2>
+                    <div class="table-visual">
+                        <div class="screens-row">
+                            <div class="screen" data-screen="2-1">
+                                <span class="screen-label">Display 1</span>
+                                <div class="screen-content" id="screen-2-1">
+                                    <span class="no-content">Kein Inhalt</span>
+                                </div>
+                            </div>
+                            <div class="screen" data-screen="2-2">
+                                <span class="screen-label">Display 2</span>
+                                <div class="screen-content" id="screen-2-2">
+                                    <span class="no-content">Kein Inhalt</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="devices-row" id="table-2-devices">
+                            <!-- Dynamically populated with registered devices -->
+                            <div class="no-devices-at-table">Keine Geräte an diesem Tisch registriert</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table 3 -->
+                <div class="table-section" data-table="3">
+                    <h2>Tisch 3</h2>
+                    <div class="table-visual">
+                        <div class="screens-row">
+                            <div class="screen" data-screen="3-1">
+                                <span class="screen-label">Display 1</span>
+                                <div class="screen-content" id="screen-3-1">
+                                    <span class="no-content">Kein Inhalt</span>
+                                </div>
+                            </div>
+                            <div class="screen" data-screen="3-2">
+                                <span class="screen-label">Display 2</span>
+                                <div class="screen-content" id="screen-3-2">
+                                    <span class="no-content">Kein Inhalt</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="devices-row" id="table-3-devices">
+                            <!-- Dynamically populated with registered devices -->
+                            <div class="no-devices-at-table">Keine Geräte an diesem Tisch registriert</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <div class="active-session">
+                    <h3>Aktive Session</h3>
+                    <div id="active-device" class="no-session">Kein Gerät ausgewählt</div>
+                    <div id="active-screen" class="no-session">Kein Display ausgewählt</div>
+                    <div class="session-controls">
+                        <button id="stop-sharing" class="btn btn-danger" disabled>Sharing stoppen</button>
+                        <button id="request-permission" class="btn btn-primary" disabled>Berechtigung anfragen</button>
+                    </div>
+                </div>
+
+                <div class="device-list">
+                    <h3>Registrierte Geräte</h3>
+                    <div id="device-registry" class="device-registry">
+                        <div class="no-devices">Keine Geräte registriert</div>
+                    </div>
+                    <button id="refresh-devices" class="btn btn-secondary">Geräte aktualisieren</button>
+                </div>
+
+                <div class="logs">
+                    <h3>System Logs</h3>
+                    <div id="system-logs" class="log-container">
+                        <div class="log-entry">System gestartet</div>
+                    </div>
+                    <button id="clear-logs" class="btn btn-secondary">Logs löschen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for device registration -->
+    <div id="register-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Gerät registrieren</h2>
+            <form id="register-form">
+                <div class="form-group">
+                    <label for="device-name">Gerätename:</label>
+                    <input type="text" id="device-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="device-type">Gerätetyp:</label>
+                    <select id="device-type" required>
+                        <option value="phone">Smartphone</option>
+                        <option value="tablet">Tablet</option>
+                        <option value="laptop">Laptop</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="table-number">Tisch:</label>
+                    <select id="table-number" required>
+                        <option value="1">Tisch 1</option>
+                        <option value="2">Tisch 2</option>
+                        <option value="3">Tisch 3</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Registrieren</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Permission Request Modal -->
+    <div id="permission-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Screen Sharing Berechtigung</h2>
+            <p>Möchten Sie Ihren Bildschirm teilen?</p>
+            <div class="modal-actions">
+                <button id="permission-allow" class="btn btn-success">Erlauben</button>
+                <button id="permission-deny" class="btn btn-danger">Verweigern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Device and Screen Selection Modal -->
+    <div id="sharing-selection-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="document.getElementById('sharing-selection-modal').classList.add('hidden')">&times;</span>
+            <h2>Screen Sharing einrichten</h2>
+            
+            <div class="selection-step">
+                <h3>1. Gerät auswählen</h3>
+                <div id="device-selection" class="selection-grid">
+                    <!-- Dynamically populated -->
+                </div>
+            </div>
+
+            <div class="selection-step">
+                <h3>2. Ziel-Display auswählen</h3>
+                <div id="screen-selection" class="selection-grid">
+                    <div class="screen-option" data-screen="1-1">
+                        <div class="screen-preview">
+                            <span class="screen-label">Tisch 1 - Display 1</span>
+                        </div>
+                    </div>
+                    <div class="screen-option" data-screen="1-2">
+                        <div class="screen-preview">
+                            <span class="screen-label">Tisch 1 - Display 2</span>
+                        </div>
+                    </div>
+                    <div class="screen-option" data-screen="2-1">
+                        <div class="screen-preview">
+                            <span class="screen-label">Tisch 2 - Display 1</span>
+                        </div>
+                    </div>
+                    <div class="screen-option" data-screen="2-2">
+                        <div class="screen-preview">
+                            <span class="screen-label">Tisch 2 - Display 2</span>
+                        </div>
+                    </div>
+                    <div class="screen-option" data-screen="3-1">
+                        <div class="screen-preview">
+                            <span class="screen-label">Tisch 3 - Display 1</span>
+                        </div>
+                    </div>
+                    <div class="screen-option" data-screen="3-2">
+                        <div class="screen-preview">
+                            <span class="screen-label">Tisch 3 - Display 2</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button id="start-sharing-btn" class="btn btn-primary" disabled>Sharing starten</button>
+                <button onclick="document.getElementById('sharing-selection-modal').classList.add('hidden')" class="btn btn-secondary">Abbrechen</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/admin-dashboard/admin-dashboard.js"></script>
+</body>
+</html>
